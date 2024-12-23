@@ -1,5 +1,7 @@
 # POI Recommendation System
 
+## Live Link https://touristp.streamlit.app/
+
 ## Overview
 
 The **POI Recommendation System** is a sophisticated web application designed to provide personalized recommendations for Points of Interest (POIs) based on user-defined priorities. Leveraging a trained neural network model and the Groq Language Learning Model (LLM), the application not only suggests top POIs but also offers concise, engaging descriptions to enhance user experience.
