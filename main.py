@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 import joblib
 import os
+from groq import Groq
 
 # -----------------------------
 # Function to load the model and label encoder
@@ -57,11 +58,47 @@ def preprocess_input(user_priorities, feature_columns):
     return user_feature_vector.astype(float).values
 
 # -----------------------------
+# Function to get POI descriptions using Groq LLM
+# -----------------------------
+def get_poi_description(poi_name, groq_client):
+    prompt = f"Provide a brief and engaging description for the Point of Interest: {poi_name}."
+    try:
+        response = groq_client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant providing brief descriptions of Points of Interest."
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            model="llama3-8b-8192",
+        )
+        description = response.choices[0].message.content.strip()
+        return description
+    except Exception as e:
+        return "Description not available."
+
+# -----------------------------
 # Streamlit App Layout
 # -----------------------------
 def main():
-    st.title("POI Recommendation System")
-    st.write("Enter your priorities to get top recommended Points of Interest (POIs).")
+    st.set_page_config(page_title="POI Recommendation System", layout="wide")
+    st.markdown(
+        """
+        <style>
+        .main {
+            background-color: #f0f2f6;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    st.title("📍 POI Recommendation System")
+    st.markdown("### Discover Your Next Adventure Based on Your Priorities")
     
     # Load model, label encoder, and feature columns
     model, label_encoder, feature_columns = load_resources()
@@ -77,18 +114,23 @@ def main():
         'Relaxing',
         'Cultural',
         'Historical',
+        'Family-friendly',
+        'Nightlife',
+        'Shopping',
         'Unknown'  # Ensure 'Unknown' is an option
     ]
     
-    st.header("Define Your Priorities")
+    st.header("🎯 Define Your Priorities")
     
     # Collect user priorities for PRIORITY_1 to PRIORITY_5
     user_priorities = []
+    cols = st.columns(5)
     for i in range(1, 6):
-        priority = st.selectbox(f"Priority {i}", options=priority_options, key=f'priority_{i}')
-        user_priorities.append(priority)
+        with cols[i-1]:
+            priority = st.selectbox(f"Priority {i}", options=priority_options, key=f'priority_{i}')
+            user_priorities.append(priority)
     
-    if st.button("Get Recommendations"):
+    if st.button("🚀 Get Recommendations"):
         with st.spinner("Processing your input and generating recommendations..."):
             # Preprocess the input
             user_features = preprocess_input(user_priorities, feature_columns)
@@ -112,20 +154,36 @@ def main():
             # Get the corresponding probabilities
             recommended_probabilities = predictions[0][top_indices]
             
-            # Display the recommended POIs with their probabilities
-            st.success("Top Recommended POIs:")
-            for idx, (poi, prob) in enumerate(zip(recommended_pois, recommended_probabilities), start=1):
-                st.write(f"{idx}. **{poi}** (Probability: {prob:.2f})")
+            # Initialize Groq client
+            groq_api_key = "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"  # Replace with your actual Groq API key
+            groq_client = Groq(
+                api_key=groq_api_key,
+            )
+            
+            # Fetch descriptions for each POI
+            poi_details = []
+            for poi in recommended_pois:
+                description = get_poi_description(poi, groq_client)
+                poi_details.append(description)
+            
+            # Display the recommended POIs with their probabilities and descriptions
+            st.success("### Top Recommended POIs:")
+            for idx, (poi, prob, desc) in enumerate(zip(recommended_pois, recommended_probabilities, poi_details), start=1):
+                st.markdown(f"**{idx}. {poi}**")
+                st.markdown(f"*Probability: {prob:.2f}*")
+                st.markdown(f"{desc}")
+                st.markdown("---")
     
-    st.markdown("---")
-    st.markdown("### About")
-    st.markdown("""
-    This application recommends Points of Interest (POIs) based on your defined priorities using a trained neural network model.
-    
-    **Developed by:** Your Name
-    
-    **Contact:** your.email@example.com
-    """)
+    # Footer
+    st.markdown(
+        """
+        <hr>
+        <p style="text-align: center; color: gray;">
+            © 2024 POI Recommendation System. All rights reserved.
+        </p>
+        """,
+        unsafe_allow_html=True
+    )
 
 # -----------------------------
 # Entry Point
